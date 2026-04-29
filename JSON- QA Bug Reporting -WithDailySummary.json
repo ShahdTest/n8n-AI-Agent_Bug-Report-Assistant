@@ -1,0 +1,1510 @@
+{
+  "name": "AI Agent Bug Report Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "71fd2f93-d123-4e9c-890a-8777443e2649",
+      "name": "Ensure Data Flow",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1264,
+        -144
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "content",
+              "value": "={{ $('Evaluate Similarity').item.json.newBug.title + ' ' + $('Evaluate Similarity').item.json.newBug.expected_result }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "metadata",
+              "value": "={{ { 'Title': $('Evaluate Similarity').item.json.newBug.title, 'Summary': $('Evaluate Similarity').item.json.newBug.summary, 'Expected': $('Evaluate Similarity').item.json.newBug.expected_result, 'Actual': $('Evaluate Similarity').item.json.newBug.actual_result, 'Severity': $('Evaluate Similarity').item.json.newBug.severity, 'Priority': $('Evaluate Similarity').item.json.newBug.priority, 'Environment': $('Evaluate Similarity').item.json.newBug.environment, 'Jira ID': $(\"Code in JavaScript\").item.json.ticketKey, 'Jira URL': $(\"Code in JavaScript\").item.json.jiraURL } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e79f5f25-96ec-411b-ad78-2e108dfd97af",
+      "name": "Prepare Bug for Storage",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.content }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "title",
+                "value": "={{ $json.metadata.title }}"
+              },
+              {
+                "name": "severity",
+                "value": "={{ $json.metadata.severity }}"
+              },
+              {
+                "name": "priority",
+                "value": "={{ $json.metadata.priority }}"
+              },
+              {
+                "name": "summary",
+                "value": "={{ $json.metadata.summary }}"
+              },
+              {
+                "name": "steps",
+                "value": "={{ $json.metadata.steps }}"
+              },
+              {
+                "name": "expected_result",
+                "value": "={{ $json.metadata.expected_result }}"
+              },
+              {
+                "name": "actual_result",
+                "value": "={{ $json.metadata.actual_result }}"
+              },
+              {
+                "name": "environment",
+                "value": "={{ $json.metadata.environment }}"
+              },
+              {
+                "name": "additional_info",
+                "value": "={{ $json.metadata.additional_info }}"
+              },
+              {
+                "name": "reproduction_frequency",
+                "value": "={{ $json.metadata.reproduction_frequency }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5c617127-f775-4a36-b6d6-e777f221d83b",
+      "name": "Prepare Storage Document",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "07837073-7a7a-49e1-8be4-c2222146a23f",
+      "name": "Generate Storage Embedding",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1432,
+        80
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "ixCPc8RWK8t4VGBE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        }
+      },
+      "id": "2f57a485-2403-485c-af7b-b90e8549aa39",
+      "name": "Store Bug in Vector DB",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        1424,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const newBug = $('Report Parser').first().json;\nconst items = $input.all();\nconst searchResult = items.find(item => item.json.score !== undefined);\n\nif (!searchResult) {\n  return [{\n    json: {\n      isDuplicate: false,\n      newBug: newBug,\n      similarityScore: 0,\n      note: \"No similar bugs found.\"\n    }\n  }];\n}\n\nconst similarityScore = searchResult.json.score || 0;\nconst THRESHOLD = 0.85;\n\nreturn [{\n  json: {\n    isDuplicate: similarityScore >= THRESHOLD,\n    newBug: newBug,\n    similarityScore: similarityScore,\n    matchedBug: searchResult.json.metadata || searchResult.json\n  }\n}];\n"
+      },
+      "id": "e4166e58-18ab-486d-8a08-a35ee7572ff2",
+      "name": "Evaluate Similarity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "query",
+              "value": "={{ $json.title + ' ' + $json.expected_result }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "4e57feca-11ef-44de-8c7d-89f1da4c9b6b",
+      "name": "Format Search Query",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1840,
+        -20
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94",
+          "cachedResultName": "Bug Reports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": 1743300945,
+          "cachedResultName": "BugReports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit#gid=1743300945"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Jira ID": "={{ $('Code in JavaScript').item.json.ticketKey }}",
+            "Jira URL": "={{ $('Code in JavaScript').item.json.jiraURL }}",
+            "Title": "={{ $('Prepare Bug for Storage').item.json.metadata.Title }}"
+          },
+          "matchingColumns": [
+            "Title"
+          ],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Jira ID",
+              "displayName": "Jira ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Jira URL",
+              "displayName": "Jira URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {}
+          }
+        }
+      },
+      "id": "5e0743c9-1376-4377-b71f-dccbe3ba34e1",
+      "name": "Update Sheet with Jira ID",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        -144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6MxB3Ga6i1AuqVX3",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "mode": "username",
+          "value": "@bs.sabdulhaq"
+        },
+        "text": "=⚠️ *Duplicate Bug Report Detected*\n\nHey! The bug you just reported appears to be a duplicate of an existing issue.\n\n📋 *Your Report*\n*Title:* {{ $json.newBug.title }}\n*Time:* {{ $now.format('MM DD HH:MM') }}\n\n\n",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "f53fcd17-4d30-406f-8227-145e7a9b9c30",
+      "name": "Notify Duplicate",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        -592,
+        -240
+      ],
+      "webhookId": "4fcc1671-e7ad-4da4-8cec-441ba375a504",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "A1nNmKH3UpjBeO63",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cf733b8b-1632-40aa-95ff-a84e03269bed",
+      "name": "Is Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -816,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jiraData = $json;\n\nconst ticketKey = jiraData.key;\nconst self = jiraData.self;\nconst issueId = jiraData.id;\n\n// Extract base URL dynamically\nconst baseURL = self.split('/rest')[0];\n\n// Build final Jira URL\nconst jiraURL = `${baseURL}/browse/${ticketKey}`;\n\nreturn [\n  {\n    json: {\n      ticketKey,\n      jiraURL,\n      issueId\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -144
+      ],
+      "id": "c85ae9c7-baed-484f-9dd2-487044fc4e34",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -2632,
+        80
+      ],
+      "id": "87e7f4cb-7748-4e9f-b892-68975da38f79",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "ixCPc8RWK8t4VGBE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }} {{ $json.files }}",
+        "options": {
+          "systemMessage": "You are a QA Bug Report Assistant. Your task is to take raw user issue descriptions and generate professional, well-formatted bug reports.\n\nOPTIONAL DATA:\n\nAttachments: Screenshots or videos may be provided. Acknowledge if present, but do not require them.\n\nYOUR RESPONSIBILITIES:\n\nSeverity & Priority: Determine based on impact. Examples:\nLogin failures → High/Critical\nMinor UI misalignment → Low/Medium\nSteps to Reproduce: Infer from the user's description.\nExpected Result & Actual Result: Determine logically based on issue.\nReproduction Frequency: Default to \"Always\" if unclear.\nTitle: Create a concise, clear summary of the issue.\n\nBUG REPORT FORMAT:\nGenerate exactly in this format using Markdown:\n\nTitle: [Clear, concise bug title]\nSeverity: [Critical/High/Medium/Low]\nPriority: [High/Medium/Low]\nSummary: [Brief description]\nSteps to Reproduce:\n[Step 1]\n[Step 2]\n[Step 3]\nExpected Result: [What should happen]\nActual Result: [What actually happens]\nEnvironment: [Environment details, optional]\nAdditional Information: [Device category, optional notes, attachments]\nReproduction Frequency: [Always/Sometimes/Rarely]\n\nGUIDELINES:\n\nBe decisive—generate the report immediately based on the issue description.\nFormat in clean Markdown with the exact headers above."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2640,
+        -144
+      ],
+      "name": "AI Agnet Bug Reporting",
+      "id": "fff08451-9559-42fc-aab1-ddc47b67fabc"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -2504,
+        80
+      ],
+      "id": "61abde1e-3c3b-481c-8428-840c59d66a49",
+      "name": "Memory"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "@bs.sabdulhaq",
+          "mode": "username"
+        },
+        "text": "=✅ *Bug Report Approved & Ticket Created!*\n\nGreat news! Your bug report has been approved and a Jira ticket has been created.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 *Issue Title*\n{{ $('Evaluate Similarity').item.json.newBug.title }}\n\n🟢 *Status:* Approved\n🕐 *Time:* {{ $now.format('MM DD HH:MM') }}\n\n🎫 *Jira Ticket*\n*ID:* `{{ $(\"Code in JavaScript\").item.json.ticketKey }}`\n*Link:* {{ $(\"Code in JavaScript\").item.json.jiraURL }}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nThe issue is now being tracked. Click the link above to view it in Jira!",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2000,
+        -144
+      ],
+      "id": "57522ae6-53a7-4014-9840-0a3373e558dc",
+      "name": "Send a message",
+      "webhookId": "346a218f-3900-44c8-84f1-bc7f975136b0",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "A1nNmKH3UpjBeO63",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "project": {
+          "__rl": true,
+          "value": "10000",
+          "mode": "list",
+          "cachedResultName": "AI Bug Reporting Project"
+        },
+        "issueType": {
+          "__rl": true,
+          "value": "10001",
+          "mode": "list",
+          "cachedResultName": "Task"
+        },
+        "summary": "={{ $('Evaluate Similarity').item.json.newBug.title }}",
+        "additionalFields": {
+          "assignee": {
+            "__rl": true,
+            "value": "712020:1530b64d-d7bf-4750-8a7d-77a315f31c6f",
+            "mode": "list",
+            "cachedResultName": "Shahd Abdulhaq"
+          },
+          "description": "=*Priority* {{ $('Evaluate Similarity').item.json.newBug.priority }}\n*Environment:* {{ $('Evaluate Similarity').item.json.newBug.environment }}\n*Steps:*\n{{ $('Evaluate Similarity').item.json.newBug.steps }}\n*Expected Result:*\n{{ $('Evaluate Similarity').item.json.newBug.expected_result }}\n*Actual Result:*\n{{ $('Evaluate Similarity').item.json.newBug.actual_result }}\n*Additional Info:*\n{{ $('Evaluate Similarity').item.json.newBug.additional_info }}",
+          "reporter": {
+            "__rl": true,
+            "value": "712020:23249374-b527-4222-929f-3728ae126a6e",
+            "mode": "list",
+            "cachedResultName": "Automation for Incident Management"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        80,
+        -144
+      ],
+      "id": "6d8278cd-66d3-4d5e-a50f-8925d3dcd8fb",
+      "name": "Create an issue",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "U2JTLGbL1NsaoTQm",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "@bs.sabdulhaq",
+          "mode": "username"
+        },
+        "text": "=❌ *Bug Report Declined*\n\nHi there! Just wanted to let you know about a bug report update.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 *Issue Title*\n{{ $('Evaluate Similarity').item.json.newBug.title }}\n\n🔴 *Status:* Rejected\n🕐 *Time:* {{ $now.format('MM DD HH:MM') }}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nThe bug report was reviewed and declined. If you have questions, feel free to reach out to the team!",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        80,
+        48
+      ],
+      "id": "cb8e7a59-4fa1-486c-9a96-84947852a50c",
+      "name": "Bug Rejected",
+      "webhookId": "2c782c60-8316-48bd-8036-219fe909dac9",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "A1nNmKH3UpjBeO63",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e0fc60d0-0c19-4e06-8fc3-f5dd7815b63f",
+              "leftValue": "={{$json[\"data\"][\"approved\"]}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -144,
+        -48
+      ],
+      "id": "04eabe53-d003-4bbc-a493-5e7fb0ec5307",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0ANY2VSG3F",
+          "mode": "list",
+          "cachedResultName": "all-ai-workspace"
+        },
+        "message": "=🐛 *New Bug Report Submitted!*\n\nHey team! We've got a new bug report that needs your review.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 *Bug Details*\n\n*Title:* {{ $('Evaluate Similarity').item.json.newBug.title }}\n\n*Severity:* `{{ $('Evaluate Similarity').item.json.newBug.severity }}`\n*Priority:* `{{ $('Evaluate Similarity').item.json.newBug.priority }}`\n*Environment:* {{ $('Evaluate Similarity').item.json.newBug.environment }}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📝 *Summary*\n{{ $('Evaluate Similarity').item.json.newBug.summary }}\n\n🔍 *Steps to Reproduce*\n{{ $('Evaluate Similarity').item.json.newBug.steps }}\n\n✅ *Expected Result*\n{{ $('Evaluate Similarity').item.json.newBug.expected_result }}\n\n❌ *Actual Result*\n{{ $('Evaluate Similarity').item.json.newBug.actual_result }}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n👇 *Please review and respond below:*",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        -368,
+        -48
+      ],
+      "name": "Send issue and wait for approval",
+      "webhookId": "cae20e4e-6e8b-4432-a62f-11ace7e66bc7",
+      "id": "92f81dcf-1bc6-469d-9514-efff218d25dc",
+      "notesInFlow": false,
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "A1nNmKH3UpjBeO63",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94",
+          "mode": "list",
+          "cachedResultName": "Bug Reports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1743300945,
+          "mode": "list",
+          "cachedResultName": "BugReports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit#gid=1743300945"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $('Evaluate Similarity').item.json.newBug.title }}",
+            "Summary": "={{ $('Evaluate Similarity').item.json.newBug.summary }}",
+            "Steps": "={{ $('Evaluate Similarity').item.json.newBug.steps }}",
+            "Expected": "={{ $('Evaluate Similarity').item.json.newBug.expected_result }}",
+            "Actual": "={{ $('Evaluate Similarity').item.json.newBug.actual_result }}",
+            "Severity": "={{ $('Evaluate Similarity').item.json.newBug.severity }}",
+            "Priority": "={{ $('Evaluate Similarity').item.json.newBug.priority }}",
+            "Environment": "={{ $('Evaluate Similarity').item.json.newBug.environment }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steps",
+              "displayName": "Steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Expected",
+              "displayName": "Expected",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Actual",
+              "displayName": "Actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Severity",
+              "displayName": "Severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Environment",
+              "displayName": "Environment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Jira ID",
+              "displayName": "Jira ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Jira URL",
+              "displayName": "Jira URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -592,
+        -48
+      ],
+      "name": "Bugs Report Sheet",
+      "id": "c379a0eb-c44a-4b34-9dfe-cdd75c7bfb21",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6MxB3Ga6i1AuqVX3",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction extract(text, header) {\n  if (!text) return '';\n  const regex = new RegExp('(?:\\\\*\\\\*)?' + header + ':(?:\\\\*\\\\*)?\\\\s*([\\\\s\\\\S]*?)(?=\\\\n(?:\\\\*\\\\*)?[\\\\w\\\\s]+:|$)','i');\n  const match = text.match(regex);\n  return match ? match[1].trim() : '';\n}\n\nreturn items.map(item => {\n  const output = item.json.output || item.json.ai_report || '';\n  const files = item.json.files || [];\n  \n  return {\n    json: {\n      output: output,\n      title: extract(output, 'Title'),\n      severity: extract(output, 'Severity'),\n      priority: extract(output, 'Priority'),\n      summary: extract(output, 'Summary'),\n      steps: extract(output, 'Steps to Reproduce'),\n      expected_result: extract(output, 'Expected Result'),\n      actual_result: extract(output, 'Actual Result'),\n      environment: extract(output, 'Environment'),\n      additional_info: extract(output, 'Additional Information'),\n      reproduction_frequency: extract(output, 'Reproduction Frequency'),\n      files: files\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2064,
+        -144
+      ],
+      "name": "Report Parser",
+      "id": "30c5e943-b32c-4c71-80d7-d0430dc9a288"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai_report",
+              "name": "ai_report",
+              "value": "={{$json[\"output\"].replace(\"Here is the QA bug report in Markdown format:\\n\\n\",\"\")}}\nai_report = {{$json[\"output\"].replace(/Here is.*Markdown format:\\n\\n/i, \"\").trim()}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2288,
+        -144
+      ],
+      "name": "Bug Report",
+      "id": "a8327d80-695a-4b1b-a0fd-6a9c07bc80ed"
+    },
+    {
+      "parameters": {
+        "options": {
+          "allowFileUploads": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -2864,
+        -144
+      ],
+      "name": "User Input",
+      "webhookId": "f6880556-e98d-4f46-9e59-8911daf5a297",
+      "id": "915b0be2-5b13-4bac-9649-fd78fbd2e482",
+      "alwaysOutputData": false,
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "bd828656-352b-4340-9fe7-96a9b9e74252",
+      "name": "Generate Bug Embedding",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1544,
+        204
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "ixCPc8RWK8t4VGBE",
+          "name": "n8n free OpenAI API credits"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        },
+        "prompt": "={{ $json.query }}",
+        "topK": 1
+      },
+      "id": "2a83ea74-0660-4aea-90eb-2d5567166f10",
+      "name": "Search Similar Bugs",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        -1616,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $(\"User Input\").item.json.files && $(\"User Input\").item.json.files.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "92c70d15-710f-4434-a1b7-5a739af36be8",
+      "name": "Check for Files",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        528,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "issueAttachment",
+        "issueKey": "={{ $(\"Code in JavaScript\").item.json.ticketKey }}"
+      },
+      "id": "df03492f-301e-41f3-b460-e4040603fcaf",
+      "name": "Add Attachment to Jira",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        976,
+        -72
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "U2JTLGbL1NsaoTQm",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const userInput = $(\"User Input\").first();\nconst currentItem = $input.first();\n\nconst binaryKey = userInput.json.files[0].binaryKey;\nconst binaryData = userInput.binary[binaryKey];\n\nif (!binaryData) {\n  throw new Error(\"Binary data not found for key: \" + binaryKey);\n}\n\nreturn [{\n  json: currentItem.json,\n  binary: {\n    data: binaryData\n  }\n}];"
+      },
+      "id": "aba74c5c-0b57-4562-89db-83ac7f7629d3",
+      "name": "Get File from Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -72
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 15
+            }
+          ]
+        }
+      },
+      "id": "dfa79d1d-1705-42d8-bda8-d067d0cfabe8",
+      "name": "Daily Report Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -2864,
+        308
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94",
+          "cachedResultName": "Bug Reports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": 1743300945,
+          "cachedResultName": "BugReports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit#gid=1743300945"
+        },
+        "options": {}
+      },
+      "id": "94298145-07f2-4862-a773-21f130e868e4",
+      "name": "Read All Bugs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2640,
+        404
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6MxB3Ga6i1AuqVX3",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Count bugs by severity\nconst severityCounts = {};\nconst priorityCounts = {};\nconst jiraIds = [];\n\nitems.forEach(item => {\n  const severity = item.json.Severity || \"Unknown\";\n  const priority = item.json.Priority || \"Unknown\";\n  const jiraId = item.json[\"Jira ID\"];\n  \n  severityCounts[severity] = (severityCounts[severity] || 0) + 1;\n  priorityCounts[priority] = (priorityCounts[priority] || 0) + 1;\n  \n  if (jiraId && jiraId.trim() !== \"\") {\n    jiraIds.push(jiraId.trim());\n  }\n});\n\nreturn [{\n  json: {\n    totalBugs: items.length,\n    jiraIds: jiraIds,\n    severityCounts: severityCounts,\n    priorityCounts: priorityCounts,\n    reportDate: new Date().toISOString().split(\"T\")[0]\n  }\n}];"
+      },
+      "id": "6b987bec-babd-4802-a510-1a96c139dc9b",
+      "name": "Count Bugs by Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2416,
+        404
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\n// Build severity table\nlet severityTable = \"| Severity | Count |\\n|----------|-------|\\n\";\nObject.entries(data.severityCounts).forEach(([severity, count]) => {\n  severityTable += `| ${severity} | ${count} |\\n`;\n});\n\n// Build priority table\nlet priorityTable = \"| Priority | Count |\\n|----------|-------|\\n\";\nObject.entries(data.priorityCounts).forEach(([priority, count]) => {\n  priorityTable += `| ${priority} | ${count} |\\n`;\n});\n\n// Build status table\nlet statusTable = \"| Status | Count |\\n|--------|-------|\\n\";\nstatusTable += `| With Jira ID | ${data.withJiraId} |\\n`;\nstatusTable += `| Without Jira ID | ${data.withoutJiraId} |\\n`;\n\nconst htmlReport = `\n<h2>Daily Bug Report - ${data.reportDate}</h2>\n<h3>Summary</h3>\n<p><strong>Total Bugs Reported:</strong> ${data.totalBugs}</p>\n\n<h3>Status Breakdown</h3>\n<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\">\n  <tr><th>Status</th><th>Count</th></tr>\n  <tr><td>With Jira ID</td><td>${data.withJiraId}</td></tr>\n  <tr><td>Without Jira ID</td><td>${data.withoutJiraId}</td></tr>\n</table>\n\n<h3>Severity Breakdown</h3>\n<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\">\n  <tr><th>Severity</th><th>Count</th></tr>\n  ${Object.entries(data.severityCounts).map(([sev, cnt]) => `<tr><td>${sev}</td><td>${cnt}</td></tr>`).join(\"\")}\n</table>\n\n<h3>Priority Breakdown</h3>\n<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\">\n  <tr><th>Priority</th><th>Count</th></tr>\n  ${Object.entries(data.priorityCounts).map(([pri, cnt]) => `<tr><td>${pri}</td><td>${cnt}</td></tr>`).join(\"\")}\n</table>\n`;\n\nreturn [{\n  json: {\n    ...data,\n    severityTable: severityTable,\n    priorityTable: priorityTable,\n    statusTable: statusTable,\n    htmlReport: htmlReport\n  }\n}];"
+      },
+      "id": "f230514e-88c4-4691-ac43-5d5f2b683f3e",
+      "name": "Format Report Table",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2192,
+        404
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\n// Prepare rows for Summary sheet\nconst rows = [];\n\n// Add header row data\nrows.push({\n  json: {\n    Date: data.reportDate,\n    \"Total Bugs\": data.totalBugs,\n    \"List of JIRA ID\": data.jiraIds.join(\", \"),\n    \"Critical\": data.severityCounts.Critical || 0,\n    \"High\": data.severityCounts.High || 0,\n    \"Medium\": data.severityCounts.Medium || 0,\n    \"Low\": data.severityCounts.Low || 0\n  }\n});\n\nreturn rows;"
+      },
+      "id": "ff839f9b-63fd-47aa-a508-42fbe162e3d4",
+      "name": "Prepare Summary Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1968,
+        404
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94",
+          "cachedResultName": "Bug Reports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kvAe0lAuccETd4P2AXmN7G9cTyGydErtYvtL_ZP2r94/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Summary",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Total Bugs",
+              "displayName": " Total Bugs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " List of JIRA ID",
+              "displayName": " List of JIRA ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Critical",
+              "displayName": "Critical",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " High",
+              "displayName": " High",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Medium",
+              "displayName": "Medium",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Low ",
+              "displayName": "Low ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f243e3fa-28b1-4def-9bfc-005f195a8bba",
+      "name": "Append to Summary Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1744,
+        400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6MxB3Ga6i1AuqVX3",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "bs.sabdulhaq@gmail.com",
+        "subject": "=Bug Daily Report - {{ $(\"Format Report Table\").item.json.reportDate }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; color: #333; line-height: 1.6;\">\n\n  <p>Dear Team,</p>\n\n  <p>Please find below the <strong>Daily Bug Report Status</strong> for <strong>{{$json.Date}}</strong> 📊🐞</p>\n\n  <hr style=\"border: none; border-top: 1px solid #eee;\" />\n\n  <h3>📊 Bug Summary</h3>\n\n  <table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse; width: 60%; text-align: left;\">\n    <tr style=\"background-color: #f5f5f5;\">\n      <th>🐞 Metric</th>\n      <th>📈 Count</th>\n    </tr>\n    <tr>\n      <td><strong>Total Bugs</strong></td>\n      <td>{{$json['Total Bugs']}}</td>\n    </tr>\n    <tr>\n      <td>🔴 Critical</td>\n      <td>{{$json.Critical}}</td>\n    </tr>\n    <tr>\n      <td>🟠 High</td>\n      <td>{{$json.High}}</td>\n    </tr>\n    <tr>\n      <td>🟡 Medium</td>\n      <td>{{$json.Medium}}</td>\n    </tr>\n    <tr>\n      <td>🟢 Low</td>\n      <td>{{$json.Low}}</td>\n    </tr>\n  </table>\n\n  <br/>\n\n  <h3>🧾 JIRA Tickets List</h3>\n  <p>{{$json['List of JIRA ID']}}</p>\n\n  <br/>\n\n  <h3>📝 Notes</h3>\n  <ul>\n    <li>Prioritize 🔴 Critical and 🟠 High severity issues</li>\n    <li>Ensure all updates are reflected in JIRA</li>\n    <li>Report any blockers immediately</li>\n  </ul>\n\n  <br/>\n\n  <p>Thank you for your efforts and collaboration 🙏</p>\n\n  <p>\n    Best regards,<br/>\n    <strong>Shahd Abdulhaq</strong>\n  </p>\n\n</div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "7e39185e-1bac-4205-b003-e3f11981c89e",
+      "name": "Send Daily Report Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1520,
+        404
+      ],
+      "webhookId": "0756ab8d-f2ad-4db0-bcef-088c778b2256",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fqoNoJM20yyvOaJN",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "d8040026-44bc-427d-8d3f-6fa122c7a66c",
+      "name": "Manual Report Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2864,
+        500
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Prepare Storage Document": {
+      "ai_document": [
+        [
+          {
+            "node": "Store Bug in Vector DB",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Storage Embedding": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Store Bug in Vector DB",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Bug for Storage": {
+      "main": [
+        [
+          {
+            "node": "Store Bug in Vector DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Data Flow": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Similarity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Bug in Vector DB": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet with Jira ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Similarity": {
+      "main": [
+        [
+          {
+            "node": "Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Notify Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bugs Report Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Check for Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agnet Bug Reporting",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agnet Bug Reporting": {
+      "main": [
+        [
+          {
+            "node": "Bug Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agnet Bug Reporting",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheet with Jira ID": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an issue": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create an issue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bug Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send issue and wait for approval": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bugs Report Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send issue and wait for approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Parser": {
+      "main": [
+        [
+          {
+            "node": "Format Search Query",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ensure Data Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bug Report": {
+      "main": [
+        [
+          {
+            "node": "Report Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agnet Bug Reporting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Bug Embedding": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Search Similar Bugs",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Search Query": {
+      "main": [
+        [
+          {
+            "node": "Search Similar Bugs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Similar Bugs": {
+      "main": [
+        [
+          {
+            "node": "Ensure Data Flow",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Check for Files": {
+      "main": [
+        [
+          {
+            "node": "Get File from Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Bug for Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Attachment to Jira": {
+      "main": [
+        [
+          {
+            "node": "Prepare Bug for Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File from Binary": {
+      "main": [
+        [
+          {
+            "node": "Add Attachment to Jira",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Report Schedule": {
+      "main": [
+        [
+          {
+            "node": "Read All Bugs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read All Bugs": {
+      "main": [
+        [
+          {
+            "node": "Count Bugs by Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Bugs by Status": {
+      "main": [
+        [
+          {
+            "node": "Format Report Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report Table": {
+      "main": [
+        [
+          {
+            "node": "Prepare Summary Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Summary Data": {
+      "main": [
+        [
+          {
+            "node": "Append to Summary Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Summary Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Report Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read All Bugs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d2aed305-0517-44cd-8e2b-046084ca9bd9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7ce6099fc287c2eebf3700a97a25a735e2f23d8d35f4f0a183da4afe9e630790"
+  },
+  "id": "qeWDUR2JGVOHhV1M",
+  "tags": [
+    {
+      "updatedAt": "2026-04-01T15:32:21.961Z",
+      "createdAt": "2026-04-01T15:32:21.961Z",
+      "id": "8Mei1CHiF104bISu",
+      "name": "First Version"
+    }
+  ]
+}
